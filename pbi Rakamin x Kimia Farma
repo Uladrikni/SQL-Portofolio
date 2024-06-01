@@ -1,0 +1,142 @@
+#top 10 total transaksi cabang provinsi
+select kc.provinsi,
+count(kft.transaction_id) as total_transaksi
+from `Kimia_Farma.kf_kantor_cabang` kc
+join`Kimia_Farma.kf_final_transaction` kft on (kft.branch_id=kc.branch_id)
+group by 1 
+order by 2 desc
+limit 10
+
+-- actual price 
+with complete as (
+  select ft.transaction_id,
+  ft.product_id,
+  ft.branch_id,
+  ft.date,
+  ft.price,
+  ft.rating,
+  ft.discount_percentage,
+  kp.product_name,
+  kp.product_category,
+  kc.kota,
+  kc.provinsi
+  from `Kimia_Farma.kf_final_transaction` ft
+  left join `Kimia_Farma.kf_kantor_cabang` kc on ft.branch_id=kc.branch_id
+  left join `Kimia_Farma.kf_product` kp on kp.product_id=kp.product_id
+)
+select price from complete
+
+-- percentage gross laba 
+select price,
+CASE 
+WHEN price <= 50000 Then "10%"
+WHEN price > 50000-100000 Then "15%"
+WHEN price >100000-300000 Then "20%"
+WHEN price >300000-500000 Then "25%"
+Else "30%"
+End as percentage_gross_laba 
+from `Kimia_Farma.kf_final_transaction`
+
+-- top 10 net sales cabang provinsi
+with complete as (
+  select ft.transaction_id,
+  ft.product_id,
+  ft.branch_id,
+  ft.date,
+  ft.price,
+  ft.rating,
+  ft.discount_percentage,
+  kp.product_name,
+  kp.product_category,
+  kc.kota,
+  kc.provinsi
+  from `Kimia_Farma.kf_final_transaction` ft
+  left join `Kimia_Farma.kf_kantor_cabang` kc on ft.branch_id=kc.branch_id
+  left join `Kimia_Farma.kf_product` kp on kp.product_id=kp.product_id
+)
+
+select provinsi,
+price*discount_percentage as net_sales
+from complete
+order by 2 desc
+limit 10
+
+#perbandingan pendapatan kimia farma dari tahun ke tahun 
+with laba as
+(select price*discount_percentage as net_sales,
+extract(year from date) as Tahun,
+CASE 
+WHEN price <= 50000 Then 0.1
+WHEN price > 50000-100000 Then 0.15
+WHEN price >100000-300000 Then 0.2
+WHEN price >300000-500000 Then 0.25
+Else 0.3
+End as percentage_gross_laba 
+from `Kimia_Farma.kf_final_transaction` 
+)
+
+select Tahun,
+sum(round(net_sales/percentage_gross_laba)) as net_profit
+from laba 
+group by 1
+order by 2 desc
+limit 10
+
+#total profit masing-masing provinsi 
+with laba as
+(select kft.price*kft.discount_percentage as net_sales,
+kc.provinsi,
+CASE 
+WHEN price <= 50000 Then 0.1
+WHEN price > 50000-100000 Then 0.15
+WHEN price >100000-300000 Then 0.2
+WHEN price >300000-500000 Then 0.25
+Else 0.3
+End as percentage_gross_laba 
+from `Kimia_Farma.kf_final_transaction` kft
+join `Kimia_Farma.kf_kantor_cabang` kc on kft.branch_id=kc.branch_id
+)
+
+select provinsi,
+sum(round(net_sales/percentage_gross_laba)) as net_profit
+from laba 
+group by 1
+order by 2 desc
+limit 10
+
+#top 5 cabang dengan rating tertinggi, rating transaksi terendah 
+-- rating cabang tertinggi
+  select rating,branch_id, kota, branch_name
+  from `Kimia_Farma.kf_kantor_cabang`
+  order by 1 desc
+  limit 5
+
+-- transaksi terendah
+  select rating, transaction_id,branch_id
+  from `Kimia_Farma.kf_final_transaction`
+  order by 1
+  limit 5
+
+-- produk best seller  
+with complete as (
+  select ft.transaction_id,
+  ft.product_id,
+  ft.branch_id,
+  ft.date,
+  ft.price,
+  ft.rating,
+  ft.discount_percentage,
+  kp.product_name,
+  kp.product_category,
+  kc.kota,
+  kc.provinsi
+  from `Kimia_Farma.kf_final_transaction` ft
+  left join `Kimia_Farma.kf_kantor_cabang` kc on ft.branch_id=kc.branch_id
+  left join `Kimia_Farma.kf_product` kp on kp.product_id=kp.product_id
+)
+select
+count(transaction_id) as total_transaksi,
+product_name
+from complete 
+group by 2
+order by 1 desc
